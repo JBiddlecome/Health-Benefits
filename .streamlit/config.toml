@@ -1,0 +1,8 @@
+[server]
+headless = true
+enableXsrfProtection = true
+# Increase if your spreadsheets are large (in MB)
+maxUploadSize = 500
+
+[theme]
+base = "light"
