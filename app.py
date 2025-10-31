@@ -24,14 +24,36 @@ def normalize_cols(df):
     df.columns = [str(c).strip() for c in df.columns]
     return df
 
-def parse_date(s):
-    if pd.isna(s):
+EXCEL_EPOCH = datetime(1899, 12, 30)
+
+
+def parse_date(value):
+    """Coerce assorted Excel date representations into pandas Timestamps."""
+    if pd.isna(value):
         return pd.NaT
-    # Try multiple parsers
-    try:
-        return pd.to_datetime(s, errors="coerce")
-    except Exception:
+
+    # Already a datetime-like object
+    if isinstance(value, (pd.Timestamp, datetime, np.datetime64)):
+        return pd.to_datetime(value, errors="coerce")
+
+    # Excel serial numbers come through as floats/ints. Ignore booleans which also
+    # inherit from int.
+    if isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool):
+        if np.isnan(value) or value <= 0:
+            return pd.NaT
+        excel_like = float(value) < 60000  # covers Excel serials through ~2064
+        if excel_like:
+            try:
+                return pd.Timestamp(EXCEL_EPOCH) + pd.to_timedelta(float(value), unit="D")
+            except (OverflowError, ValueError):
+                pass
+        value = str(int(value)) if float(value).is_integer() else str(value)
+
+    # Strings and other objects fall back to pandas' parser
+    value_str = str(value).strip()
+    if not value_str:
         return pd.NaT
+    return pd.to_datetime(value_str, errors="coerce")
 
 def month_2nd_to_1st(year:int, month:int):
     """
@@ -152,8 +174,8 @@ if emp_file is not None and payroll_file is not None:
         st.stop()
 
     # Parse dates in Employee List
-    emp_df["Start Date"] = pd.to_datetime(emp_df["Start Date"], errors="coerce")
-    emp_df["Rehire Date"] = pd.to_datetime(emp_df["Rehire Date"], errors="coerce")
+    emp_df["Start Date"] = emp_df["Start Date"].apply(parse_date)
+    emp_df["Rehire Date"] = emp_df["Rehire Date"].apply(parse_date)
 
     # Filter status
     mask_active = ~emp_df["Status"].str.strip().str.lower().isin(["terminated", "resigned"])
