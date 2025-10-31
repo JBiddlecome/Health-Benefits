@@ -1,0 +1,38 @@
+
+# Employee Hours Analyzer (Streamlit)
+
+This web app lets you:
+1. Upload **Employee List Example** and **Payroll Example** (.xlsx).
+2. Pick a preset **date window** that always runs from the **2nd of a month** through the **1st of the next month** (inclusive).
+3. It finds employees (not Terminated/Resigned) whose **Start Date OR Rehire Date** falls in that window.
+4. It filters the Payroll rows to ONLY those employees, computes **Total Hours = Reg H (e) + OT H (e) + DT H (e) + Non-Worked Hours (e)**, keeps only rows with **Total Hours ≥ 360**, and shows **#Emp, First Name, Last Name, Total Hours**.
+5. Download the result as Excel.
+
+## Run locally
+
+```bash
+# 1) Create a virtual environment (optional but recommended)
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# 2) Install requirements
+pip install -r requirements.txt
+
+# 3) Launch the app
+streamlit run app.py
+```
+
+The app will open in your browser (usually http://localhost:8501).
+
+## Deploy (Streamlit Community Cloud)
+
+1. Push `app.py` and `requirements.txt` to a GitHub repo.
+2. Go to share.streamlit.io, select your repo, and deploy.
+
+## Expected Columns
+
+**Employee List Example**
+- `Employee ID`, `First Name`, `Last Name`, `Start Date`, `Rehire Date`, `Status`
+
+**Payroll Example**
+- `#Emp`, `First Name`, `Last Name`, `Reg H (e)`, `OT H (e)`, `DT H (e)`, `Non-Worked Hours (e)`
