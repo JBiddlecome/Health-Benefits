@@ -9,11 +9,11 @@ from dateutil.relativedelta import relativedelta
 st.set_page_config(page_title="Employee Hours Analyzer", page_icon="📊", layout="wide")
 
 st.title("📊 Employee Hours Analyzer")
-st.write(
-    #
+st.markdown(
+    """
     Upload **Employee List** and **Payroll** Excel files, pick a preset date range (2nd → 1st),
     and get an output table of employees with **Total Hours ≥ 360**.
-    #
+    """
 )
 
 # -----------------------------
