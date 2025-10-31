@@ -24,6 +24,37 @@ def normalize_cols(df):
     df.columns = [str(c).strip() for c in df.columns]
     return df
 
+
+def clean_emp_id(value):
+    """Return a consistent string representation for employee identifiers."""
+    if pd.isna(value):
+        return None
+
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+
+    if isinstance(value, (float, np.floating)):
+        if np.isnan(value):
+            return None
+        if float(value).is_integer():
+            return str(int(value))
+        return str(value).strip()
+
+    value_str = str(value).strip()
+    if not value_str:
+        return None
+
+    # Common Excel artefact: identifiers like "123.0"
+    if value_str.replace(".", "", 1).isdigit():
+        try:
+            as_float = float(value_str)
+            if as_float.is_integer():
+                return str(int(as_float))
+        except ValueError:
+            pass
+
+    return value_str
+
 EXCEL_EPOCH = datetime(1899, 12, 30)
 
 
@@ -194,8 +225,10 @@ if emp_file is not None and payroll_file is not None:
     st.dataframe(emp_window, use_container_width=True)
 
     # Use Employee IDs to filter Payroll rows
-    emp_ids = set(emp_window["Employee ID"].dropna().astype(str))
-    payroll_df["#Emp"] = payroll_df["#Emp"].astype(str)
+    emp_window["Employee ID"] = emp_window["Employee ID"].apply(clean_emp_id)
+    emp_ids = set(filter(None, emp_window["Employee ID"].tolist()))
+
+    payroll_df["#Emp"] = payroll_df["#Emp"].apply(clean_emp_id)
 
     payroll_filtered = payroll_df[payroll_df["#Emp"].isin(emp_ids)].copy()
 
