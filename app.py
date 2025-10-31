@@ -55,32 +55,6 @@ def clean_emp_id(value):
 
     return value_str
 
-
-def normalize_emp_id_columns(emp_series, payroll_series):
-    """Clean Employee List and Payroll identifiers and align their formatting."""
-
-    emp_clean = emp_series.apply(clean_emp_id)
-    payroll_clean = payroll_series.apply(clean_emp_id)
-
-    combined = pd.concat([emp_clean.dropna(), payroll_clean.dropna()], ignore_index=True)
-    numeric_vals = [val for val in combined if isinstance(val, str) and val.isdigit()]
-
-    pad_width = max((len(val) for val in numeric_vals), default=None)
-
-    if pad_width:
-        emp_clean = emp_clean.apply(
-            lambda v: v.zfill(pad_width) if isinstance(v, str) and v.isdigit() else v
-        )
-        payroll_clean = payroll_clean.apply(
-            lambda v: v.zfill(pad_width) if isinstance(v, str) and v.isdigit() else v
-        )
-
-    # Uppercase alpha characters for consistent casing
-    emp_clean = emp_clean.apply(lambda v: v.upper() if isinstance(v, str) else v)
-    payroll_clean = payroll_clean.apply(lambda v: v.upper() if isinstance(v, str) else v)
-
-    return emp_clean.astype("string"), payroll_clean.astype("string")
-
 EXCEL_EPOCH = datetime(1899, 12, 30)
 
 
@@ -256,8 +230,10 @@ if emp_file is not None and payroll_file is not None:
     st.dataframe(emp_window, use_container_width=True)
 
     # Use Employee IDs to filter Payroll rows
-    # Convert to Python set for membership checks, ignoring missing IDs
-    emp_ids = set(filter(None, emp_window["Employee ID"].dropna().tolist()))
+    emp_window["Employee ID"] = emp_window["Employee ID"].apply(clean_emp_id)
+    emp_ids = set(filter(None, emp_window["Employee ID"].tolist()))
+
+    payroll_df["#Emp"] = payroll_df["#Emp"].apply(clean_emp_id)
 
     payroll_filtered = payroll_df[payroll_df["#Emp"].isin(emp_ids)].copy()
 
