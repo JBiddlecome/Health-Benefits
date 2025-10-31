@@ -204,6 +204,11 @@ if emp_file is not None and payroll_file is not None:
         st.error(f"Payroll file is missing required columns: {missing_pay}")
         st.stop()
 
+    # Normalize Employee IDs in both datasets before any filtering so formats match exactly
+    emp_df["Employee ID"], payroll_df["#Emp"] = normalize_emp_id_columns(
+        emp_df["Employee ID"], payroll_df["#Emp"]
+    )
+
     # Parse dates in Employee List
     emp_df["Start Date"] = emp_df["Start Date"].apply(parse_date)
     emp_df["Rehire Date"] = emp_df["Rehire Date"].apply(parse_date)
