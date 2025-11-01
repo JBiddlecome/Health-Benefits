@@ -55,6 +55,29 @@ def clean_emp_id(value):
 
     return value_str
 
+
+def align_employee_ids(emp_series: pd.Series, payroll_series: pd.Series):
+    """Return cleaned copies of employee and payroll ID columns with identical formatting."""
+
+    emp_clean = emp_series.apply(clean_emp_id)
+    payroll_clean = payroll_series.apply(clean_emp_id)
+
+    # Find the widest purely numeric identifier across both sources so we can zero-fill consistently
+    combined = pd.concat([emp_clean.dropna(), payroll_clean.dropna()], ignore_index=True)
+    numeric_vals = [val for val in combined if isinstance(val, str) and val.isdigit()]
+    pad_width = max((len(val) for val in numeric_vals), default=None)
+
+    def format_id(value: str):
+        if not isinstance(value, str):
+            return value
+        formatted = value.zfill(pad_width) if pad_width and value.isdigit() else value
+        return formatted.upper()
+
+    emp_aligned = emp_clean.apply(format_id).astype("string")
+    payroll_aligned = payroll_clean.apply(format_id).astype("string")
+
+    return emp_aligned, payroll_aligned
+
 EXCEL_EPOCH = datetime(1899, 12, 30)
 
 
@@ -205,6 +228,7 @@ if emp_file is not None and payroll_file is not None:
         st.stop()
 
     # Normalize Employee IDs in both datasets before any filtering so formats match exactly
+    emp_df["Employee ID"], payroll_df["#Emp"] = align_employee_ids(
     emp_df["Employee ID"], payroll_df["#Emp"] = normalize_emp_id_columns(
         emp_df["Employee ID"], payroll_df["#Emp"]
     )
@@ -230,6 +254,8 @@ if emp_file is not None and payroll_file is not None:
     st.dataframe(emp_window, use_container_width=True)
 
     # Use Employee IDs to filter Payroll rows
+    # Convert to Python set for membership checks, ignoring missing IDs
+    emp_ids = set(filter(None, emp_window["Employee ID"].dropna().tolist()))
     emp_window["Employee ID"] = emp_window["Employee ID"].apply(clean_emp_id)
     emp_ids = set(filter(None, emp_window["Employee ID"].tolist()))
 
