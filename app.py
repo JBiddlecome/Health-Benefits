@@ -229,7 +229,6 @@ if emp_file is not None and payroll_file is not None:
 
     # Normalize Employee IDs in both datasets before any filtering so formats match exactly
     emp_df["Employee ID"], payroll_df["#Emp"] = align_employee_ids(
-    emp_df["Employee ID"], payroll_df["#Emp"] = normalize_emp_id_columns(
         emp_df["Employee ID"], payroll_df["#Emp"]
     )
 
