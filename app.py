@@ -229,6 +229,7 @@ if emp_file is not None and payroll_file is not None:
 
     # Normalize Employee IDs in both datasets before any filtering so formats match exactly
     emp_df["Employee ID"], payroll_df["#Emp"] = align_employee_ids(
+    emp_df["Employee ID"], payroll_df["#Emp"] = normalize_emp_id_columns(
         emp_df["Employee ID"], payroll_df["#Emp"]
     )
 
@@ -255,6 +256,10 @@ if emp_file is not None and payroll_file is not None:
     # Use Employee IDs to filter Payroll rows
     # Convert to Python set for membership checks, ignoring missing IDs
     emp_ids = set(filter(None, emp_window["Employee ID"].dropna().tolist()))
+    emp_window["Employee ID"] = emp_window["Employee ID"].apply(clean_emp_id)
+    emp_ids = set(filter(None, emp_window["Employee ID"].tolist()))
+
+    payroll_df["#Emp"] = payroll_df["#Emp"].apply(clean_emp_id)
 
     payroll_filtered = payroll_df[payroll_df["#Emp"].isin(emp_ids)].copy()
 
