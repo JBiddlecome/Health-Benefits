@@ -287,6 +287,10 @@ if emp_file is not None and payroll_file is not None:
     if debug_mode:
         st.markdown("#### 🔍 Matched payroll rows before hour filter")
         st.write("Matched payroll rows", payroll_filtered.shape[0])
+    if debug_mode:
+        st.markdown("#### 🔍 Matched payroll rows before hour filter")
+        st.write("Matched payroll rows", payroll_filtered.shape[0])
+        hour_cols = ["Reg H (e)", "OT H (e)", "DT H (e)", "Non-Worked Hours (e)"]
         preview = payroll_filtered[["#Emp", *hour_cols]].head(10)
         preview_numeric = preview.assign(
             **{col: preview[col].apply(safe_number) for col in hour_cols}
@@ -295,6 +299,8 @@ if emp_file is not None and payroll_file is not None:
 
     # Compute numeric hours for every matched payroll row
     for col in hour_cols:
+    # Compute Total Hours = Reg H (e) + OT H (e) + DT H (e) + Non-Worked Hours (e)
+    for col in ["Reg H (e)", "OT H (e)", "DT H (e)", "Non-Worked Hours (e)"]:
         payroll_filtered[col] = payroll_filtered[col].apply(safe_number)
 
     # Combine multiple payroll rows per employee by summing their hours
@@ -316,6 +322,10 @@ if emp_file is not None and payroll_file is not None:
 
     # Remove employees where Total Hours < 360
     payroll_final = payroll_grouped[payroll_grouped["Total Hours"] >= 360].copy()
+
+    if debug_mode:
+        st.markdown("#### 🔍 Final results overview")
+        st.write("Rows meeting 360-hour threshold", payroll_final.shape[0])
 
     if debug_mode:
         st.markdown("#### 🔍 Final results overview")
