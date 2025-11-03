@@ -200,6 +200,12 @@ start_dt, end_inclusive_dt, exclusive_upper_dt = month_2nd_to_1st(selected_year,
 
 st.info(f"Using **{start_dt.strftime('%m/%d/%Y')}** through **{end_inclusive_dt.strftime('%m/%d/%Y')}** (inclusive).")
 
+debug_mode = st.checkbox(
+    "Show troubleshooting diagnostics",
+    value=False,
+    help="Enable extra tables to compare employee IDs and hours while debugging empty results.",
+)
+
 # -----------------------------
 # Process files when both are provided
 # -----------------------------
@@ -232,6 +238,12 @@ if emp_file is not None and payroll_file is not None:
         emp_df["Employee ID"], payroll_df["#Emp"]
     )
 
+    if debug_mode:
+        st.markdown("#### 🔍 ID alignment preview")
+        st.caption("First few IDs after cleaning to verify formatting and leading zeros.")
+        st.dataframe(emp_df[["Employee ID"]].head(10))
+        st.dataframe(payroll_df[["#Emp"]].head(10))
+
     # Parse dates in Employee List
     emp_df["Start Date"] = emp_df["Start Date"].apply(parse_date)
     emp_df["Rehire Date"] = emp_df["Rehire Date"].apply(parse_date)
@@ -254,27 +266,60 @@ if emp_file is not None and payroll_file is not None:
 
     # Use Employee IDs to filter Payroll rows
     # Convert to Python set for membership checks, ignoring missing IDs
-    emp_ids = set(filter(None, emp_window["Employee ID"].dropna().tolist()))
-    emp_window["Employee ID"] = emp_window["Employee ID"].apply(clean_emp_id)
-    emp_ids = set(filter(None, emp_window["Employee ID"].tolist()))
+    emp_ids = set(emp_window["Employee ID"].dropna())
 
-    payroll_df["#Emp"] = payroll_df["#Emp"].apply(clean_emp_id)
+    if debug_mode:
+        st.markdown("#### 🔍 Employee ID comparison")
+        payroll_ids = set(payroll_df["#Emp"].dropna())
+        st.write("Employee IDs in window", sorted(emp_ids)[:15])
+        st.write("Sample payroll IDs", sorted(payroll_ids)[:15])
+        missing_from_payroll = sorted(emp_ids - payroll_ids)
+        st.write(
+            "IDs missing from payroll",
+            missing_from_payroll[:15],
+            len(missing_from_payroll),
+        )
 
     payroll_filtered = payroll_df[payroll_df["#Emp"].isin(emp_ids)].copy()
 
-    # Compute Total Hours = Reg H (e) + OT H (e) + DT H (e) + Non-Worked Hours (e)
-    for col in ["Reg H (e)", "OT H (e)", "DT H (e)", "Non-Worked Hours (e)"]:
+    hour_cols = ["Reg H (e)", "OT H (e)", "DT H (e)", "Non-Worked Hours (e)"]
+
+    if debug_mode:
+        st.markdown("#### 🔍 Matched payroll rows before hour filter")
+        st.write("Matched payroll rows", payroll_filtered.shape[0])
+        preview = payroll_filtered[["#Emp", *hour_cols]].head(10)
+        preview_numeric = preview.assign(
+            **{col: preview[col].apply(safe_number) for col in hour_cols}
+        )
+        st.dataframe(preview_numeric)
+
+    # Compute numeric hours for every matched payroll row
+    for col in hour_cols:
         payroll_filtered[col] = payroll_filtered[col].apply(safe_number)
 
-    payroll_filtered["Total Hours"] = (
-        payroll_filtered["Reg H (e)"]
-        + payroll_filtered["OT H (e)"]
-        + payroll_filtered["DT H (e)"]
-        + payroll_filtered["Non-Worked Hours (e)"]
+    # Combine multiple payroll rows per employee by summing their hours
+    group_cols = ["#Emp", "First Name", "Last Name"]
+    payroll_grouped = (
+        payroll_filtered.groupby(group_cols, dropna=False, as_index=False)[hour_cols]
+        .sum()
     )
 
-    # Remove rows where Total Hours < 360
-    payroll_final = payroll_filtered[payroll_filtered["Total Hours"] >= 360].copy()
+    payroll_grouped["Total Hours"] = payroll_grouped[hour_cols].sum(axis=1)
+
+    if debug_mode:
+        st.markdown("#### 🔍 Total hours per employee (after summing duplicates)")
+        st.dataframe(
+            payroll_grouped[["#Emp", "Total Hours", *hour_cols]]
+            .sort_values("Total Hours", ascending=False)
+            .head(10)
+        )
+
+    # Remove employees where Total Hours < 360
+    payroll_final = payroll_grouped[payroll_grouped["Total Hours"] >= 360].copy()
+
+    if debug_mode:
+        st.markdown("#### 🔍 Final results overview")
+        st.write("Rows meeting 360-hour threshold", payroll_final.shape[0])
 
     # Display only the requested columns
     out_cols = ["#Emp", "First Name", "Last Name", "Total Hours"]
