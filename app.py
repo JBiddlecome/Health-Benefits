@@ -282,6 +282,11 @@ if emp_file is not None and payroll_file is not None:
 
     payroll_filtered = payroll_df[payroll_df["#Emp"].isin(emp_ids)].copy()
 
+    hour_cols = ["Reg H (e)", "OT H (e)", "DT H (e)", "Non-Worked Hours (e)"]
+
+    if debug_mode:
+        st.markdown("#### 🔍 Matched payroll rows before hour filter")
+        st.write("Matched payroll rows", payroll_filtered.shape[0])
     if debug_mode:
         st.markdown("#### 🔍 Matched payroll rows before hour filter")
         st.write("Matched payroll rows", payroll_filtered.shape[0])
@@ -292,19 +297,35 @@ if emp_file is not None and payroll_file is not None:
         )
         st.dataframe(preview_numeric)
 
+    # Compute numeric hours for every matched payroll row
+    for col in hour_cols:
     # Compute Total Hours = Reg H (e) + OT H (e) + DT H (e) + Non-Worked Hours (e)
     for col in ["Reg H (e)", "OT H (e)", "DT H (e)", "Non-Worked Hours (e)"]:
         payroll_filtered[col] = payroll_filtered[col].apply(safe_number)
 
-    payroll_filtered["Total Hours"] = (
-        payroll_filtered["Reg H (e)"]
-        + payroll_filtered["OT H (e)"]
-        + payroll_filtered["DT H (e)"]
-        + payroll_filtered["Non-Worked Hours (e)"]
+    # Combine multiple payroll rows per employee by summing their hours
+    group_cols = ["#Emp", "First Name", "Last Name"]
+    payroll_grouped = (
+        payroll_filtered.groupby(group_cols, dropna=False, as_index=False)[hour_cols]
+        .sum()
     )
 
-    # Remove rows where Total Hours < 360
-    payroll_final = payroll_filtered[payroll_filtered["Total Hours"] >= 360].copy()
+    payroll_grouped["Total Hours"] = payroll_grouped[hour_cols].sum(axis=1)
+
+    if debug_mode:
+        st.markdown("#### 🔍 Total hours per employee (after summing duplicates)")
+        st.dataframe(
+            payroll_grouped[["#Emp", "Total Hours", *hour_cols]]
+            .sort_values("Total Hours", ascending=False)
+            .head(10)
+        )
+
+    # Remove employees where Total Hours < 360
+    payroll_final = payroll_grouped[payroll_grouped["Total Hours"] >= 360].copy()
+
+    if debug_mode:
+        st.markdown("#### 🔍 Final results overview")
+        st.write("Rows meeting 360-hour threshold", payroll_final.shape[0])
 
     if debug_mode:
         st.markdown("#### 🔍 Final results overview")
